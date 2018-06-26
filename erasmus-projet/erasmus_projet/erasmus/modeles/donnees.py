@@ -53,13 +53,15 @@ class Edition(db.Model):
     edition_dedication = db.Column(db.Text)
     edition_reference = db.Column(db.Text)
     edition_citation = db.Column(db.Integer)
+    edition_user_id = db.Column(db.Integer, db.ForeignKey('user.user_id'))
     exemplaire = db.relationship("Exemplaire", back_populates="edition")
     reference = db.relationship("Reference", back_populates="edition")
     citation = db.relationship("Citation", back_populates="edition")
     digital = db.relationship("Digital", back_populates="edition")
+    user = db.relationship("User", back_populates="edition")
 
 
-    def creer_edition(short_title, title_notes, uniform_title, full_title, author_first, author_second, publisher, prefaceur, nomRejete, translator, dateInferred, displayDate, cleanDate, languages, placeInferred, place, placeClean, place2, country, format, formatNotes, imprint, signatures, PpFf, remarks, colophon, illustrated, typographicMaterial, sheets, typeNotes, fb, correct, locFingerprints, stcnFingerprints, tpt, notes, printer, urlImage, class0, class1, class2, digital, fulltext, tpimage, privelege, dedication, reference, citation):
+    def creer_edition(short_title, title_notes, uniform_title, full_title, author_first, author_second, publisher, prefaceur, nomRejete, translator, dateInferred, displayDate, cleanDate, languages, placeInferred, place, placeClean, place2, country, format, formatNotes, imprint, signatures, PpFf, remarks, colophon, illustrated, typographicMaterial, sheets, typeNotes, fb, correct, locFingerprints, stcnFingerprints, tpt, notes, printer, urlImage, class0, class1, class2, digital, fulltext, tpimage, privelege, dedication, reference, citation, user_id):
         erreurs = []
         if not short_title:
             erreurs.append("Le titre fourni est vide")
@@ -120,6 +122,7 @@ class Edition(db.Model):
             edition_dedication=dedication,
             edition_reference=reference,
             edition_citation=citation,
+            edition_user_id=user_id
             
         )
         print(edition)
@@ -135,7 +138,7 @@ class Edition(db.Model):
             return False, [str(erreur)]
 
     @staticmethod
-    def modif_edition(id, short_title, title_notes, uniform_title, full_title, author_first, author_second, publisher, prefaceur, nomRejete, translator, dateInferred, displayDate, cleanDate, languages, placeInferred, place, placeClean, place2, country, format, formatNotes, imprint, signatures, PpFf, remarks, colophon, illustrated, typographicMaterial, sheets, typeNotes, fb, correct, locFingerprints, stcnFingerprints, tpt, notes, printer, urlImage, class0, class1, class2, digital, fulltext, tpimage, privelege, dedication, reference, citation):
+    def modif_edition(id, short_title, title_notes, uniform_title, full_title, author_first, author_second, publisher, prefaceur, nomRejete, translator, dateInferred, displayDate, cleanDate, languages, placeInferred, place, placeClean, place2, country, format, formatNotes, imprint, signatures, PpFf, remarks, colophon, illustrated, typographicMaterial, sheets, typeNotes, fb, correct, locFingerprints, stcnFingerprints, tpt, notes, printer, urlImage, class0, class1, class2, digital, fulltext, tpimage, privelege, dedication, reference, citation, user_id):
 
 
         edition = Edition.query.get(id)
@@ -188,6 +191,7 @@ class Edition(db.Model):
         edition.edition_dedication = dedication,
         edition.edition_reference = reference,
         edition.edition_citation = citation,
+        edition.edition_user_id = user_id
 
         try:
             # On l'ajoute au transport vers la base de données
@@ -222,6 +226,12 @@ class Edition(db.Model):
             filtres.append(Edition.edition_author_first.like("%{}%".format(champs["auteur"])))
         if "date" in champs:
             filtres.append(Edition.edition_cleanDate.like("%{}%".format(champs["date"])))
+        if "place" in champs:
+            filtres.append(Edition.edition_place2.like("%{}%".format(champs["place"])))
+        if "pays" in champs:
+            filtres.append(Edition.edition_country.like("%{}%".format(champs["pays"])))
+        if "printer" in champs:
+            filtres.append(Edition.edition_printer.like("%{}%".format(champs["printer"])))
 
         if "possesseur" in champs:
             joined.add(Edition.exemplaire)
@@ -370,16 +380,18 @@ class Exemplaire(db.Model):
     exemplaire_reliure_recueilFactice = db.Column(db.Text)
     exemplaire_reliure_reliure  = db.Column(db.Text)
     exemplaire_reliure_reliureXVI = db.Column(db.Text)
+    exemplaire_relieAvec = db.Column(db.Text)
     exemplaire_edition_id = db.Column(db.Integer, db.ForeignKey('edition.edition_id'))
+    exemplaire_user_id = db.Column(db.Integer, db.ForeignKey('user.user_id'))
     exemplaire_bibliothecae_id = db.Column(db.Text, db.ForeignKey('bibliothecae.bibliothecae_id'))
     edition = db.relationship("Edition", back_populates="exemplaire")
     bibliothecae = db.relationship("Bibliothecae", back_populates="exemplaire")
     provenance = db.relationship("Provenance", back_populates="exemplaire")
+    user = db.relationship("User", back_populates="exemplaire")
 
-    
 
 
-    def ajout_exemplaire(pressmark, hauteur, variantesEdition, digitalURL, etatMateriel, notes, provenances, locFingerprint, stcnFingerprint, annotationManuscrite, largeur, recueilFactice, reliure, reliureXVI, edition_id, bibliothecae_id):
+    def ajout_exemplaire(pressmark, hauteur, variantesEdition, digitalURL, etatMateriel, notes, provenances, locFingerprint, stcnFingerprint, annotationManuscrite, largeur, recueilFactice, reliure, reliureXVI, relieAvec, edition_id, bibliothecae_id, user_id):
 
         # On crée un commentaire
         exemplars = Exemplaire(
@@ -397,8 +409,10 @@ class Exemplaire(db.Model):
             exemplaire_reliure_recueilFactice=recueilFactice,
             exemplaire_reliure_reliure=reliure,
             exemplaire_reliure_reliureXVI=reliureXVI,
+            exemplaire_relieAvec = relieAvec,
             exemplaire_edition_id=edition_id,
-            exemplaire_bibliothecae_id=bibliothecae_id
+            exemplaire_bibliothecae_id=bibliothecae_id,
+            exemplaire_user_id = user_id
         )
         print(exemplars)
         try:
@@ -415,7 +429,7 @@ class Exemplaire(db.Model):
             return False, [str(erreur)]
 
     @staticmethod
-    def modif_exemplaire(id, pressmark, hauteur, variantesEdition, digitalURL, etatMateriel, notes, provenances, locFingerprint, stcnFingerprint, annotationManuscrite, largeur, recueilFactice, reliure, reliureXVI, bibliothecae_id):
+    def modif_exemplaire(id, pressmark, hauteur, variantesEdition, digitalURL, etatMateriel, notes, provenances, locFingerprint, stcnFingerprint, annotationManuscrite, largeur, recueilFactice, relieAvec, reliure, reliureXVI, bibliothecae_id, user_id):
 
         exemplaires = Exemplaire.query.get(id)
 
@@ -432,8 +446,10 @@ class Exemplaire(db.Model):
         exemplaires.exemplaire_collator_largeur = largeur,
         exemplaires.exemplaire_reliure_recueilFactice = recueilFactice,
         exemplaires.exemplaire_reliure_reliure = reliure,
+        exemplaires.exemplaire_relieAvec = relieAvec,
         exemplaires.exemplaire_reliure_reliureXVI = reliureXVI,
-        exemplaires.exemplaire_bibliothecae_id = bibliothecae_id
+        exemplaires.exemplaire_bibliothecae_id = bibliothecae_id,
+        exemplaires.exemplaire_user_id = user_id
 
         try:
             # On l'ajoute au transport vers la base de données
@@ -617,11 +633,12 @@ class Bibliographie(db.Model):
 
 class Citation(db.Model):
     citation_id = db.Column(db.Integer, unique=True, nullable=False, primary_key=True, autoincrement=True)
-    citation_dbname = db.Column(db.Text)
     citation_dbnumber = db.Column(db.Integer)
     citation_url = db.Column(db.Text)
     citation_edition_id = db.Column(db.Integer, db.ForeignKey('edition.edition_id'))
+    citation_catalogue_id = db.Column(db.Integer, db.ForeignKey('catalogue.catalogue_id'))
     edition = db.relationship("Edition", back_populates="citation")
+    catalogue = db.relationship("Catalogue", back_populates="citation")
 
     def ajout_citation(dbname, dbnumber, url, edition_id):
         citations=Citation(
@@ -682,9 +699,7 @@ class Digital(db.Model):
     digital_url = db.Column(db.Text)
     digital_provider = db.Column(db.Text, nullable=False)
     digital_edition_id = db.Column(db.Integer, db.ForeignKey('edition.edition_id'))
-    digital_digitization_id = db.Column(db.Integer, db.ForeignKey('digitization.digitization_id'))
     edition = db.relationship("Edition", back_populates="digital")
-    digitization = db.relationship("Digitization", back_populates="digital")
 
     def ajout_digital(url, provider):
         digitals=Digital(
@@ -700,49 +715,6 @@ class Digital(db.Model):
         except Exception as erreur:
             return False, [str(erreur)]
 
-
-
-class Digitization(db.Model):
-    digitization_id = db.Column(db.Integer, unique=True, nullable=False, primary_key=True, autoincrement=True)
-    digitization_provider = db.Column(db.Text)
-    digitization_fullName = db.Column(db.Text)
-    digitization_nationality = db.Column(db.Text)
-    digitization_status = db.Column(db.Text)
-    digitization_web = db.Column(db.Text)
-    digitization_address = db.Column(db.Text)
-    digitization_town = db.Column(db.Text)
-    digitization_country = db.Column(db.Text)
-    digitization_postcode = db.Column(db.Text)
-    digitization_telephone = db.Column(db.Text)
-    digitization_fax = db.Column(db.Text)
-    digitization_email = db.Column(db.Text)
-    digitization_notes = db.Column(db.Text)
-    digital = db.relationship("Digital", back_populates="digitization")
-
-    def ajout_digitazation(provider, fullName, nationality, status, web, address, town, country, postcode, telephone, fax, email, notes):
-        digitizations=Digitization(
-           digitization_provider = provider,
-           digitization_fullName = fullName,
-           digitization_nationality = nationality,
-           digitization_status = status,
-           digitization_web = web,
-           digitization_address = address,
-           digitization_town = town,
-           digitization_country = country,
-           digitization_postcode = postcode,
-           digitization_telephone = telephone,
-           digitization_fax = fax,
-           digitization_email = email,
-           digitization_notes = notes
-        )
-        print(digitizations)
-        try:
-            db.session.add(digitizations)
-            db.session.commit()
-
-            return True, digitizations
-        except Exception as erreur:
-            return False, [str(erreur)]
 
 
 class Provenance(db.Model):
@@ -839,4 +811,9 @@ class Provenance(db.Model):
             return False
 
 
-
+class Catalogue(db.Model):
+    catalogue_id = db.Column(db.Text, unique=True, nullable=False, primary_key=True)
+    catalogue_nom = db.Column(db.Text)
+    catalogue_nom_abrege = db.Column(db.Text)
+    catalogue_site = db.Column(db.Text)
+    citation = db.relationship("Citation", back_populates="catalogue")

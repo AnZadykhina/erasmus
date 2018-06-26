@@ -1,9 +1,11 @@
 from flask import render_template, request, flash, redirect, url_for
 
 
-from .app import app, db
+from .app import app, db, login
 from .modeles.donnees import Edition, Exemplaire, Bibliothecae, Provenance, Reference, Bibliographie, Citation
 from .constantes import EDITION_PAR_PAGE
+from .modeles.utilisateurs import User
+from flask_login import login_user, current_user, logout_user, login_required
 
 
 @app.route("/")
@@ -60,11 +62,9 @@ def issue(edition_id):
     exemplaires=unique_issue.exemplaire
     citations=unique_issue.citation
     references=unique_issue.reference
+    digitals=unique_issue.digital
 
-    return render_template("pages/issue.html", nom="Erasmus", issue=unique_issue, exemplaires=exemplaires, citations=citations, references=references)
-
-
-
+    return render_template("pages/issue.html", nom="Erasmus", issue=unique_issue, exemplaires=exemplaires, citations=citations, references=references, digitals=digitals)
 
 
 @app.route("/bibliographies")
@@ -279,6 +279,7 @@ def creer_edition():
             dedication=request.form.get("dedication", None),
             reference=request.form.get("reference", None),
             citation=request.form.get("citation", None),
+            user_id=current_user.get_id()
 
 
         )
@@ -351,6 +352,7 @@ def modif_edition(edition_id):
             dedication=request.form.get("dedication", None),
             reference=request.form.get("reference", None),
             citation=request.form.get("citation", None),
+            user_id=current_user.get_id()
     )
 
         if status is True:
@@ -394,8 +396,10 @@ def ajout_exemplaire(identifier):
             recueilFactice=request.form.get('recueilFactice'),
             reliure=request.form.get('reliure'),
             reliureXVI=request.form.get('reliureXVI'),
+            relieAvec=request.form.get('relieAvec'),
             edition_id=identifier,
             bibliothecae_id=request.form.get('library'),
+            user_id=current_user.get_id()
     )
         if statut is True:
             flash("Enregistrement effectué", "success")
@@ -435,7 +439,9 @@ def modif_exemplaire(exemplaire_id):
             recueilFactice=request.form.get('recueilFactice'),
             reliure=request.form.get('reliure'),
             reliureXVI=request.form.get('reliureXVI'),
+            relieAvec=request.form.get('relieAvec'),
             bibliothecae_id=request.form.get('library'),
+            user_id=current_user.get_id(),
         )
         if statut is True:
             flash("Enregistrement effectué", "success")
@@ -652,7 +658,7 @@ def recherche():
 
     # On fait de même pour le titre de la page
     titre = "Recherche"
-    resultats = Edition.recherche_avancee(request.args)
+    resultats = Edition.recherche_avancee(request.args).order_by(Edition.edition_short_title)
 
 
 
@@ -704,27 +710,12 @@ def recherche_rapide():
             Edition.edition_translator.like("%{}%".format(motcle)),
             Edition.edition_imprint.like("%{}%".format(motcle)),
             Edition.edition_short_title.like("%{}%".format(motcle)))
-            ).paginate(page=page, per_page=EDITION_PAR_PAGE)
+            ).order_by(Edition.edition_short_title).paginate(page=page, per_page=EDITION_PAR_PAGE)
     # si un résultat, renvoie sur la page résultat
         titre = "Résultat de la recherche : `" + motcle + "`"
         return render_template("pages/resultats.html", resultats=resultats, titre=titre, keyword=motcle)
 
-@app.route("/browse")
-def browse():
 
-    page = request.args.get("page", 1)
-
-    if isinstance(page, str) and page.isdigit():
-        page = int(page)
-    else:
-        page = 1
-
-    resultats = Edition.query.paginate(page=page, per_page=EDITION_PAR_PAGE)
-
-    return render_template(
-        "pages/browse.html",
-        resultats=resultats
-    )
 
 @app.route("/suppression_edition/<int:edition_id>", methods=["GET", "POST"])
 def suppression_edition(edition_id):
@@ -840,3 +831,62 @@ def suppression_reference(reference_id):
         else:
             flash("La suppression a échoué.", "danger")
             return redirect(url_for('issue', edition_id=unique_reference.reference_edition_id))
+
+@app.route("/register", methods=["GET", "POST"])
+
+def inscription():
+    """ Route gérant les inscriptions
+    :return: page html d'inscription
+    """
+
+    if request.method == "POST":
+        statut, donnees = User.creer(
+            login=request.form.get("login", None),
+            email=request.form.get("email", None),
+            nom=request.form.get("nom", None),
+            motdepasse=request.form.get("motdepasse", None)
+        )
+        if statut is True:
+            flash("Enregistrement effectué. Identifiez-vous maintenant", "success")
+            return redirect("/")
+        else:
+            flash("Les erreurs suivantes ont été rencontrées : " + ",".join(donnees), "error")
+            return render_template("pages/inscription.html")
+    else:
+        return render_template("pages/inscription.html")
+
+@app.route("/connexion", methods=["POST", "GET"])
+def connexion():
+    """ Route gérant les connexions
+    :return: page html de connection
+    """
+    if current_user.is_authenticated is True:
+        flash("Vous êtes déjà connecté-e", "info")
+        return redirect("/")
+    # Si on est en POST, cela veut dire que le formulaire a été envoyé
+    if request.method == "POST":
+        utilisateur = User.identification(
+            login=request.form.get("login", None),
+            motdepasse=request.form.get("motdepasse", None)
+        )
+        if utilisateur:
+            flash("Connexion effectuée", "success")
+            login_user(utilisateur)
+            return redirect("/")
+        else:
+            flash("Les identifiants n'ont pas été reconnus", "error")
+
+    return render_template("pages/connexion.html")
+
+
+login.login_view = 'connexion'
+
+@app.route("/deconnexion", methods=["POST", "GET"])
+def deconnexion():
+    """ Route gérant les déconnexions
+        :return: page html d'acceuil
+        """
+    if current_user.is_authenticated is True:
+        logout_user()
+    flash("Vous êtes déconnecté-e", "info")
+    return redirect("/")

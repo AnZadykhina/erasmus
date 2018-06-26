@@ -25,12 +25,18 @@
         <a class="navbar-brand" href="{{ url_for('accueil') }}">Erasmus</a>
 
         <ul class="navbar-nav mr-auto">
-             <!-- <li class="nav-item">
-                <a class="nav-link" href="{{url_for("browse")}}">Navigation</a>
-              </li>-->
+
 
             <ul class="nav navbar-nav navbar-right">
+                {% if not current_user.is_authenticated %}
+                <li class="nav-item"><a class="nav-link" href="{{url_for("recherche_avancee")}}">Recherche</a></li>
+                  <li class="nav-item"><a class="nav-link" href="{{url_for("connexion")}}">Connexion</a></li>
+
+                {%else%}
 <li class="nav-item"><a class="nav-link" href="{{url_for("recherche_avancee")}}">Recherche</a></li>
+
+                <li class="nav-item"><a class="nav-link" href="{{url_for("inscription")}}">Inscription</a></li>
+                <li class="nav-item"><a class="nav-link" href="{{url_for("deconnexion")}}">Déconnexion ({{current_user.user_nom}})</a></li>
                 <div class="dropdown open">
   <button class="btn btn-outline-secondary dropdown-toggle" type="button" id="dropdownMenuButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
     Ajout
@@ -41,8 +47,7 @@
     <a class="dropdown-item"href="{{url_for("ajout_bibliographie")}}">Ajout de bibliographie</a>
   </div>
 </div>
-
-
+{%endif%}
             </ul>
         </ul>
         <form class="form-inline" action="{{url_for("recherche_rapide")}}" method="GET">
